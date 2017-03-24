@@ -101,13 +101,23 @@ namespace WeChat.Controllers
         private string FormatResult(XElement rootElement, string responseContent, string msgType)
         {
 
+            var suffix = "<Content><![CDATA[{1}]]></Content>" + "</xml>";
+
+            if (msgType == "news")
+            {
+                suffix = "<ArticleCount>6</ArticleCount>"
+              + "<Articles>"
+              + "{1}"
+              + "</Articles>"
+              + "</xml>";
+            }
+
             return string.Format(@"<xml>"
               + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
               + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
               + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
               + "<MsgType><![CDATA[{0}]]></MsgType>"
-              + "<Content><![CDATA[{1}]]></Content>"
-              + "</xml>", msgType, responseContent);
+              + suffix, msgType, responseContent);
         }
 
         private string GetTranslatedData(string translateCandidateContent)
@@ -129,8 +139,8 @@ namespace WeChat.Controllers
             var targetUrl = "http://v.juhe.cn/weixin/query?pno=1&ps=6&dtype=xml&key=9229f60e403167df4a9826e7d36e6d79";
             var downloadString = GetDownloadString(targetUrl);
 
-            var xDocument = (XDocument)JsonConvert.DeserializeXNode(downloadString);
-            var articleitems = xDocument.Root.Element("result").Element("list").Elements().Select(item => BuildArticleItems(item));
+            var xDocument = (XDocument)JsonConvert.DeserializeXNode(downloadString, "root");
+            var articleitems = xDocument.Root.Element("result").Elements("list").Select(item => BuildArticleItems(item));
 
             var articleContent = string.Empty;
             foreach (var item in articleitems)

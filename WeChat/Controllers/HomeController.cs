@@ -36,12 +36,15 @@ namespace WeChat.Controllers
             var rootElement = xmlRequest.Root;
             var messageType = rootElement.Element("MsgType");
 
-            var responseResult = GetDefaultMessageResponseResult(rootElement);
+            var responseResult = GetDefaultMessageContent();
 
             if (messageType != null && messageType.Value == "text")
             {
-                responseResult = GetResponseResult(rootElement);
+                var originalRequestContent = rootElement.Element("Content").Value.Trim();
+                responseResult = GetResponseContent(originalRequestContent);
             }
+
+            responseResult = FormatResult(rootElement, responseResult);
 
             return Content(responseResult, "text/xml", Encoding.UTF8);
         }
@@ -60,73 +63,51 @@ namespace WeChat.Controllers
                            + "你想使用什么功能，请给月光留言。\r\n"
                            + "微信号: yueguang112358";
 
-            //var celeberateOneWeek = DateTime.Parse("2017-03-29");
-            //var isInCeleberateRange = celeberateOneWeek.AddDays(-7) <= DateTime.UtcNow;
-
-            //if (!isInCeleberateRange)
-            //{
-            //    resultMessage = "Congratulation on Chinese Male football beat South Korea.";
-            //}
-
-
             return resultMessage;
         }
 
-        private static string GetDefaultMessageResponseResult(XElement rootElement)
+        private string GetResponseContent(string originalRequestContent)
         {
-            return "<xml>"
-               + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
-               + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
-               + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
-               + "<MsgType><![CDATA[text]]></MsgType>"
-               + "<Content><![CDATA[" + GetDefaultMessageContent() + "]]></Content>"
-               + "</xml>";
-        }
+            var responseContent = GetDefaultMessageContent();
 
-        private string GetResponseResult(XElement rootElement)
-        {
-            var responseContent = GetDefaultMessageResponseResult(rootElement);
-
-            var pureContent = rootElement.Element("Content").Value.Trim();
-
-            if (pureContent.Contains(Weather))
+            if (originalRequestContent.Contains(Weather))
             {
-                var cityName = pureContent.Substring(2).Trim();
+                var cityName = originalRequestContent.Substring(2).Trim();
 
                 responseContent = GetWeatherData(cityName);
             }
-            if (pureContent.Contains(Translate))
+            if (originalRequestContent.Contains(Translate))
             {
-                var translateCandidateContent = pureContent.Substring(2).Trim();
+                var translateCandidateContent = originalRequestContent.Substring(2).Trim();
 
                 responseContent = GetTranslatedData(translateCandidateContent);
             }
-            if (pureContent.Contains(Weixin) || pureContent.Contains(Choiceness))
+            if (originalRequestContent.Contains(Weixin) || originalRequestContent.Contains(Choiceness))
             {
                 responseContent = GetNewsData();
             }
-            else if (pureContent.StartsWith(JokePrefix))
+            else if (originalRequestContent.StartsWith(JokePrefix))
             {
-                var jokeName = pureContent.Split(' ')[1];
+                var jokeName = originalRequestContent.Split(' ')[1];
                 responseContent = GetJokeData(jokeName);
             }
 
-            return FormatResult(rootElement, responseContent);
+            return responseContent;
         }
 
-        private string FormatResult(XElement rootElement, string responseContent)
+        private string FormatResult(XElement rootElement, string responseContent, string msgType = "text")
         {
 
-            return "<xml>"
+            return string.Format(@"<xml>"
               + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
               + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
               + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
-              + "<MsgType><![CDATA[text]]></MsgType>"
-              + "<Content><![CDATA[" + responseContent + "]]></Content>"
-              + "</xml>";
+              + "<MsgType><![CDATA[{0}]]></MsgType>"
+              + "<Content><![CDATA[{1}]]></Content>"
+              + "</xml>", msgType, responseContent);
         }
 
-        private string GetTranslatedData( string translateCandidateContent)
+        private string GetTranslatedData(string translateCandidateContent)
         {
             var targetUrl = string.Format(@"http://fanyi.youdao.com/openapi.do?keyfrom=Angas112358&key=481379024&type=data&doctype=json&version=1.1&q={0}", translateCandidateContent);
             var downloadString = GetDownloadString(targetUrl);
@@ -143,7 +124,7 @@ namespace WeChat.Controllers
         private string GetNewsData()
         {
             var targetUrl = "http://v.juhe.cn/weixin/query?pno=1&ps=6&dtype=xml&key=9229f60e403167df4a9826e7d36e6d79";
-            var downloadString =GetDownloadString(targetUrl);
+            var downloadString = GetDownloadString(targetUrl);
 
             var articleitems = XDocument.Parse(downloadString).Root.Element("result").Element("list").Elements().Select(item => BuildArticleItems(item));
 
@@ -172,7 +153,7 @@ namespace WeChat.Controllers
 
         private string GetWeatherData(string city)
         {
-            var targetUrl =  "http://v.juhe.cn/weather/index?dtype=xml&format=1&key=df13c9ded7d616ff9432ed1955e57fa3&cityname=" + city;
+            var targetUrl = "http://v.juhe.cn/weather/index?dtype=xml&format=1&key=df13c9ded7d616ff9432ed1955e57fa3&cityname=" + city;
             string downloadString = GetDownloadString(targetUrl);
 
             var xml = XDocument.Parse(downloadString);

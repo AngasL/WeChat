@@ -100,7 +100,6 @@ namespace WeChat.Controllers
 
         private string FormatResult(XElement rootElement, string responseContent, string msgType)
         {
-
             var suffix = "<Content><![CDATA[{1}]]></Content>" + "</xml>";
 
             if (msgType == "news")
@@ -139,10 +138,15 @@ namespace WeChat.Controllers
             var targetUrl = "http://v.juhe.cn/weixin/query?pno=1&ps=6&dtype=xml&key=9229f60e403167df4a9826e7d36e6d79";
             var downloadString = GetDownloadString(targetUrl);
 
-            var xDocument = (XDocument)JsonConvert.DeserializeXNode(downloadString, "root");
-            var articleitems = xDocument.Root.Element("result").Elements("list").Select(item => BuildArticleItems(item));
+            var xDocument = JsonConvert.DeserializeXNode(downloadString, "root");
+            var articleitems = xDocument
+                .Root
+                .Element("result")
+                .Elements("list")
+                .Select(item => BuildArticleItems(item));
 
             var articleContent = string.Empty;
+
             foreach (var item in articleitems)
             {
                 articleContent += item.ToString();

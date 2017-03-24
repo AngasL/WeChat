@@ -37,14 +37,14 @@ namespace WeChat.Controllers
             var messageType = rootElement.Element("MsgType");
 
             var responseResult = GetDefaultMessageContent();
-
+            string msgType = "text";
             if (messageType != null && messageType.Value == "text")
             {
                 var originalRequestContent = rootElement.Element("Content").Value.Trim();
-                responseResult = GetResponseContent(originalRequestContent);
+                responseResult = GetResponseContent(originalRequestContent, out msgType);
             }
 
-            responseResult = FormatResult(rootElement, responseResult);
+            responseResult = FormatResult(rootElement, responseResult, msgType);
 
             return Content(responseResult, "text/xml", Encoding.UTF8);
         }
@@ -56,7 +56,7 @@ namespace WeChat.Controllers
                            + "1.天气 城市名称\r\n"
                            + "例如：天气北京（天气+城市名字）\r\n"
                            + "2.翻译 英汉互译 \r\n"
-                           + "例如： 翻译 apple 或者 翻译 苹果（翻译+翻译内容）"
+                           + "例如： 翻译 apple 或者 翻译 苹果（翻译+翻译内容） \r\n"
                            + "3.精选图文\r\n"
                            + "例如：微信精选\r\n"
                            + "4.用户自定义\r\n"
@@ -66,8 +66,9 @@ namespace WeChat.Controllers
             return resultMessage;
         }
 
-        private string GetResponseContent(string originalRequestContent)
+        private string GetResponseContent(string originalRequestContent, out string msgType)
         {
+            msgType = "text";
             var responseContent = GetDefaultMessageContent();
 
             if (originalRequestContent.Contains(Weather))
@@ -84,6 +85,7 @@ namespace WeChat.Controllers
             }
             if (originalRequestContent.Contains(Weixin) || originalRequestContent.Contains(Choiceness))
             {
+                msgType = "news";
                 responseContent = GetNewsData();
             }
             else if (originalRequestContent.StartsWith(JokePrefix))
@@ -95,7 +97,7 @@ namespace WeChat.Controllers
             return responseContent;
         }
 
-        private string FormatResult(XElement rootElement, string responseContent, string msgType = "text")
+        private string FormatResult(XElement rootElement, string responseContent, string msgType)
         {
 
             return string.Format(@"<xml>"

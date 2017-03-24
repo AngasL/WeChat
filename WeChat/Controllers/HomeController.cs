@@ -85,7 +85,7 @@ namespace WeChat.Controllers
 
         private string GetResponseResult(XElement rootElement)
         {
-            var responseResult = GetDefaultMessageResponseResult(rootElement);
+            var responseContent = GetDefaultMessageResponseResult(rootElement);
 
             var pureContent = rootElement.Element("Content").Value.Trim();
 
@@ -93,33 +93,43 @@ namespace WeChat.Controllers
             {
                 var cityName = pureContent.Substring(2).Trim();
 
-                responseResult = GetWeatherData(rootElement, cityName);
+                responseContent = GetWeatherData(cityName);
             }
             if (pureContent.Contains(Translate))
             {
                 var translateCandidateContent = pureContent.Substring(2).Trim();
 
-                responseResult = GetTranslatedData(rootElement, translateCandidateContent);
+                responseContent = GetTranslatedData(translateCandidateContent);
             }
             if (pureContent.Contains(Weixin) || pureContent.Contains(Choiceness))
             {
-                responseResult = GetNewsData(rootElement);
+                responseContent = GetNewsData();
             }
             else if (pureContent.StartsWith(JokePrefix))
             {
                 var jokeName = pureContent.Split(' ')[1];
-                responseResult = GetJokeData(jokeName);
+                responseContent = GetJokeData(jokeName);
             }
 
-            return responseResult;
+            return FormatResult(rootElement, responseContent);
         }
 
-        private string GetTranslatedData(XElement rootElement, string translateCandidateContent)
+        private string FormatResult(XElement rootElement, string responseContent)
         {
-            var webClient = new WebClient();
-            var url = string.Format(@"http://fanyi.youdao.com/openapi.do?keyfrom=Angas112358&key=481379024&type=data&doctype=json&version=1.1&q={0}", translateCandidateContent);
-            webClient.Headers.Add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-            var downloadString = webClient.DownloadString(url);
+
+            return "<xml>"
+              + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
+              + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
+              + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
+              + "<MsgType><![CDATA[text]]></MsgType>"
+              + "<Content><![CDATA[" + responseContent + "]]></Content>"
+              + "</xml>";
+        }
+
+        private string GetTranslatedData( string translateCandidateContent)
+        {
+            var targetUrl = string.Format(@"http://fanyi.youdao.com/openapi.do?keyfrom=Angas112358&key=481379024&type=data&doctype=json&version=1.1&q={0}", translateCandidateContent);
+            var downloadString = GetDownloadString(targetUrl);
 
             var translation = JsonConvert.DeserializeObject<JObject>(downloadString)
                 .Properties()
@@ -127,22 +137,14 @@ namespace WeChat.Controllers
                 .FirstOrDefault()
                 .Value.FirstOrDefault().ToString();
 
-            return "<xml>"
-              + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
-              + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
-              + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
-              + "<MsgType><![CDATA[text]]></MsgType>"
-              + "<Content><![CDATA[" + translation + "]]></Content>"
-              + "</xml>";
+            return translation;
         }
 
-        private string GetNewsData(XElement rootElement)
+        private string GetNewsData()
         {
-            var webClient = new WebClient();
+            var targetUrl = "http://v.juhe.cn/weixin/query?pno=1&ps=6&dtype=xml&key=9229f60e403167df4a9826e7d36e6d79";
+            var downloadString =GetDownloadString(targetUrl);
 
-            var url = "http://v.juhe.cn/weixin/query?pno=1&ps=6&dtype=xml&key=9229f60e403167df4a9826e7d36e6d79";
-            webClient.Headers.Add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-            var downloadString = webClient.DownloadString(url);
             var articleitems = XDocument.Parse(downloadString).Root.Element("result").Element("list").Elements().Select(item => BuildArticleItems(item));
 
             var articleContent = string.Empty;
@@ -151,16 +153,7 @@ namespace WeChat.Controllers
                 articleContent += item.ToString();
             }
 
-            return "<xml>"
-              + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
-              + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
-              + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
-              + "<MsgType><![CDATA[news]]></MsgType>"
-              + "<ArticleCount>6</ArticleCount>"
-              + "<Articles>"
-              + articleContent
-              + "</Articles>"
-              + "</xml>";
+            return articleContent;
         }
 
         private XElement BuildArticleItems(XElement item)
@@ -177,14 +170,10 @@ namespace WeChat.Controllers
             throw new NotImplementedException();
         }
 
-        private string GetWeatherData(XElement rootElement, string city)
+        private string GetWeatherData(string city)
         {
-            var webClient = new WebClient();
-
-            var url = "http://v.juhe.cn/weather/index?dtype=xml&format=1&key=df13c9ded7d616ff9432ed1955e57fa3&cityname=" + city;
-            webClient.Headers.Add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-
-            var downloadString = webClient.DownloadString(url);
+            var targetUrl =  "http://v.juhe.cn/weather/index?dtype=xml&format=1&key=df13c9ded7d616ff9432ed1955e57fa3&cityname=" + city;
+            string downloadString = GetDownloadString(targetUrl);
 
             var xml = XDocument.Parse(downloadString);
             if (xml.Root.Element("error_code").Value != "0")
@@ -197,7 +186,7 @@ namespace WeChat.Controllers
             var skyXml = resultXml.Element("sk");
 
             var todayXml = resultXml.Element("today");
-            var weatherString = todayXml.Element("city").Value + "今天：\r\n"
+            var weatherContent = todayXml.Element("city").Value + "今天：\r\n"
                 + "当前温度： " + skyXml.Element("temp").Value + "\r\n"
                 + "风向： " + skyXml.Element("wind_direction").Value + "\r\n"
                 + "风力： " + skyXml.Element("wind_strength").Value + "\r\n"
@@ -219,7 +208,7 @@ namespace WeChat.Controllers
                     continue;
                 }
 
-                weatherString += currentDate.AddDays(i).ToString("yyyy-MM-dd") + " :\r\n"
+                weatherContent += currentDate.AddDays(i).ToString("yyyy-MM-dd") + " :\r\n"
                  + "温度范围： " + element.Element("temperature").Value + "\r\n"
                  + "天气： " + element.Element("weather").Value + "\r\n"
                  + "风力： " + element.Element("wind").Value + "\r\n";
@@ -227,13 +216,16 @@ namespace WeChat.Controllers
                 i++;
             }
 
-            return "<xml>"
-              + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
-              + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
-              + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
-              + "<MsgType><![CDATA[text]]></MsgType>"
-              + "<Content><![CDATA[" + weatherString + "]]></Content>"
-              + "</xml>";
+            return weatherContent;
+        }
+
+        private static string GetDownloadString(string targetUrl)
+        {
+            var webClient = new WebClient();
+            webClient.Headers.Add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            var downloadString = webClient.DownloadString(targetUrl);
+
+            return downloadString;
         }
     }
 }

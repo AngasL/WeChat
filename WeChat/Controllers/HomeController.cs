@@ -4,6 +4,8 @@ using System.Text;
 using System.Web.Mvc;
 using System.Xml.Linq;
 using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace WeChat.Controllers
 {
@@ -11,6 +13,7 @@ namespace WeChat.Controllers
     {
         private const string Weather = "天气";
         private const string JokePrefix = "笑话";
+        private const string Translate = "翻译";
         private const string Weixin = "微信";
         private const string Choiceness = "精选";
 
@@ -45,13 +48,28 @@ namespace WeChat.Controllers
 
         private static string GetDefaultMessageContent()
         {
-            return "请输入以下信息格式：\r\n"
+            // todo: add dictionary functionality.
+            var resultMessage = "请输入以下信息格式：\r\n"
                            + "1.天气 城市名称\r\n"
                            + "例如：天气北京（天气+城市名字）\r\n"
-                           + "2.精选图文\r\n"
+                           + "2.翻译 英汉互译 \r\n"
+                           + "例如： 翻译 apple 或者 翻译 苹果（翻译+翻译内容）"
+                           + "3.精选图文\r\n"
                            + "例如：微信精选\r\n"
-                           + "3.用户自定义\r\n"
-                           + "你想使用什么功能，请给月光留言。\r\n";
+                           + "4.用户自定义\r\n"
+                           + "你想使用什么功能，请给月光留言。\r\n"
+                           + "微信号: yueguang112358";
+
+            //var celeberateOneWeek = DateTime.Parse("2017-03-29");
+            //var isInCeleberateRange = celeberateOneWeek.AddDays(-7) <= DateTime.UtcNow;
+
+            //if (!isInCeleberateRange)
+            //{
+            //    resultMessage = "Congratulation on Chinese Male football beat South Korea.";
+            //}
+
+
+            return resultMessage;
         }
 
         private static string GetDefaultMessageResponseResult(XElement rootElement)
@@ -77,6 +95,12 @@ namespace WeChat.Controllers
 
                 responseResult = GetWeatherData(rootElement, cityName);
             }
+            if (pureContent.Contains(Translate))
+            {
+                var translateCandidateContent = pureContent.Substring(2).Trim();
+
+                responseResult = GetTranslatedData(rootElement, translateCandidateContent);
+            }
             if (pureContent.Contains(Weixin) || pureContent.Contains(Choiceness))
             {
                 responseResult = GetNewsData(rootElement);
@@ -88,6 +112,28 @@ namespace WeChat.Controllers
             }
 
             return responseResult;
+        }
+
+        private string GetTranslatedData(XElement rootElement, string translateCandidateContent)
+        {
+            var webClient = new WebClient();
+            var url = string.Format(@"http://fanyi.youdao.com/openapi.do?keyfrom=Angas112358&key=481379024&type=data&doctype=json&version=1.1&q={0}", translateCandidateContent);
+            webClient.Headers.Add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            var downloadString = webClient.DownloadString(url);
+
+            var translation = JsonConvert.DeserializeObject<JObject>(downloadString)
+                .Properties()
+                .Where(p => p.Name == "translation")
+                .FirstOrDefault()
+                .Value.FirstOrDefault().ToString();
+
+            return "<xml>"
+              + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
+              + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
+              + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
+              + "<MsgType><![CDATA[text]]></MsgType>"
+              + "<Content><![CDATA[" + translation + "]]></Content>"
+              + "</xml>";
         }
 
         private string GetNewsData(XElement rootElement)

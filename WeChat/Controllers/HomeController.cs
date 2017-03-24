@@ -2,7 +2,6 @@
 using System.Net;
 using System.Text;
 using System.Web.Mvc;
-using System.Xml;
 using System.Xml.Linq;
 using System.Linq;
 using Newtonsoft.Json;
@@ -50,23 +49,6 @@ namespace WeChat.Controllers
             return Content(responseResult, "text/xml", Encoding.UTF8);
         }
 
-        private static string GetDefaultMessageContent()
-        {
-            // todo: add dictionary functionality.
-            var resultMessage = "请输入以下信息格式：\r\n"
-                           + "1.天气 城市名称\r\n"
-                           + "例如：天气北京（天气+城市名字）\r\n"
-                           + "2.翻译 英汉互译 \r\n"
-                           + "例如： 翻译 apple 或者 翻译 苹果（翻译+翻译内容） \r\n"
-                           + "3.精选图文\r\n"
-                           + "例如：微信精选\r\n"
-                           + "4.用户自定义\r\n"
-                           + "你想使用什么功能，请给月光留言。\r\n"
-                           + "微信号: yueguang112358";
-
-            return resultMessage;
-        }
-
         private string GetResponseContent(string originalRequestContent, out string msgType)
         {
             msgType = "text";
@@ -98,6 +80,23 @@ namespace WeChat.Controllers
             return responseContent;
         }
 
+        private static string GetDefaultMessageContent()
+        {
+            // todo: add dictionary functionality.
+            var resultMessage = "请输入以下信息格式：\r\n"
+                           + "1.天气 城市名称\r\n"
+                           + "例如：天气北京（天气+城市名字）\r\n"
+                           + "2.翻译 英汉互译 \r\n"
+                           + "例如： 翻译 apple 或者 翻译 苹果（翻译+翻译内容） \r\n"
+                           + "3.精选图文\r\n"
+                           + "例如：微信精选\r\n"
+                           + "4.用户自定义\r\n"
+                           + "你想使用什么功能，请给月光留言。\r\n"
+                           + "微信号: yueguang112358";
+
+            return resultMessage;
+        }
+
         private string FormatResult(XElement rootElement, string responseContent, string msgType)
         {
             var suffix = "<Content><![CDATA[{1}]]></Content>" + "</xml>";
@@ -117,20 +116,6 @@ namespace WeChat.Controllers
               + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
               + "<MsgType><![CDATA[{0}]]></MsgType>"
               + suffix, msgType, responseContent);
-        }
-
-        private string GetTranslatedData(string translateCandidateContent)
-        {
-            var targetUrl = string.Format(@"http://fanyi.youdao.com/openapi.do?keyfrom=Angas112358&key=481379024&type=data&doctype=json&version=1.1&q={0}", translateCandidateContent);
-            var downloadString = GetDownloadString(targetUrl);
-
-            var translation = JsonConvert.DeserializeObject<JObject>(downloadString)
-                .Properties()
-                .Where(p => p.Name == "translation")
-                .FirstOrDefault()
-                .Value.FirstOrDefault().ToString();
-
-            return translation;
         }
 
         private string GetNewsData()
@@ -216,6 +201,20 @@ namespace WeChat.Controllers
             }
 
             return weatherContent;
+        }
+
+        private string GetTranslatedData(string translateCandidateContent)
+        {
+            var targetUrl = string.Format(@"http://fanyi.youdao.com/openapi.do?keyfrom=Angas112358&key=481379024&type=data&doctype=json&version=1.1&q={0}", translateCandidateContent);
+            var downloadString = GetDownloadString(targetUrl);
+
+            var translation = JsonConvert.DeserializeObject<JObject>(downloadString)
+                .Properties()
+                .Where(p => p.Name == "translation")
+                .FirstOrDefault()
+                .Value.FirstOrDefault().ToString();
+
+            return translation;
         }
 
         private static string GetDownloadString(string targetUrl)

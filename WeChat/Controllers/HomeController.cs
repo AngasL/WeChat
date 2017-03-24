@@ -2,6 +2,7 @@
 using System.Net;
 using System.Text;
 using System.Web.Mvc;
+using System.Xml;
 using System.Xml.Linq;
 using System.Linq;
 using Newtonsoft.Json;
@@ -128,7 +129,8 @@ namespace WeChat.Controllers
             var targetUrl = "http://v.juhe.cn/weixin/query?pno=1&ps=6&dtype=xml&key=9229f60e403167df4a9826e7d36e6d79";
             var downloadString = GetDownloadString(targetUrl);
 
-            var articleitems = XDocument.Parse(downloadString).Root.Element("result").Element("list").Elements().Select(item => BuildArticleItems(item));
+            var xDocument = (XDocument)JsonConvert.DeserializeXNode(downloadString);
+            var articleitems = xDocument.Root.Element("result").Element("list").Elements().Select(item => BuildArticleItems(item));
 
             var articleContent = string.Empty;
             foreach (var item in articleitems)

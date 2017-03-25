@@ -6,6 +6,9 @@ using System.Xml.Linq;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using HtmlAgilityPack;
+using System.Runtime.Caching;
+using System.Collections.Concurrent;
 
 namespace WeChat.Controllers
 {
@@ -16,6 +19,7 @@ namespace WeChat.Controllers
         private const string Translate = "翻译";
         private const string Weixin = "微信";
         private const string Choiceness = "精选";
+        private ObjectCache cache = MemoryCache.Default;
 
         [HttpGet]
         [ActionName("Index")]
@@ -73,8 +77,7 @@ namespace WeChat.Controllers
             }
             else if (originalRequestContent.StartsWith(JokePrefix))
             {
-                var jokeName = originalRequestContent.Split(' ')[1];
-                responseContent = GetJokeData(jokeName);
+                responseContent = GetJokeData();
             }
 
             return responseContent;
@@ -84,13 +87,15 @@ namespace WeChat.Controllers
         {
             // todo: add dictionary functionality.
             var resultMessage = "请输入以下信息格式：\r\n"
-                           + "1.天气 城市名称\r\n"
+
+                           + "1.笑话\r\n"
+                           + "例如： 笑话\r\n"
+                           + "2.天气 城市名称\r\n"
                            + "例如：天气北京（天气+城市名字）\r\n"
-                           + "2.翻译 英汉互译 \r\n"
+                           + "3.翻译 英汉互译 \r\n"
                            + "例如： 翻译 apple 或者 翻译 苹果（翻译+翻译内容） \r\n"
-                           + "3.精选图文\r\n"
+                           + "4.精选图文\r\n"
                            + "例如：微信精选\r\n"
-                           + "4.用户自定义\r\n"
                            + "你想使用什么功能，请给月光留言。\r\n"
                            + "微信号: yueguang112358";
 
@@ -147,11 +152,6 @@ namespace WeChat.Controllers
                 new XElement("Description", item.Element("title").Value),
                 new XElement("PicUrl", item.Element("firstImg").Value),
                 new XElement("Url", item.Element("url").Value));
-        }
-
-        private string GetJokeData(string jokeName)
-        {
-            throw new NotImplementedException();
         }
 
         private string GetWeatherData(string city)
@@ -215,6 +215,55 @@ namespace WeChat.Controllers
                 .Value.FirstOrDefault().ToString();
 
             return translation;
+        }
+
+        private string GetJokeData()
+        {
+            var jokeData = string.Empty;
+
+            try
+            {
+                ConcurrentBag<HtmlNode> cocurrentBags = new ConcurrentBag<HtmlNode>();
+
+                if (cache["Joke"] != null)
+                {
+                    cocurrentBags = cache["Joke"] as ConcurrentBag<HtmlNode>;
+                }
+                else
+                {
+                    for (var index = 1; index < 4; index++)
+                    {
+                        var downloadString = GetDownloadString("http://www.qiushibaike.com/8hr/page/" + index);
+                        var htmlDocument = new HtmlDocument();
+                        htmlDocument.LoadHtml(downloadString);
+
+                        var currentItems = htmlDocument.DocumentNode
+                        .SelectNodes("//div[@class='content-text']")
+                        .Where(n => n.InnerText.IndexOf("\n\n\n\n\n") == 0
+                        && !n.InnerHtml.Contains("<img"));
+
+                        foreach (var currentItem in currentItems)
+                        {
+                            cocurrentBags.Add(currentItem);
+                        }
+                    }
+
+                    var policy = new CacheItemPolicy();
+                    policy.AbsoluteExpiration = DateTime.Now + TimeSpan.FromMinutes(30);
+
+                    cache.Set("Joke", cocurrentBags, policy);
+                }
+
+                var random = new Random();
+
+                jokeData = cocurrentBags.ToList()[random.Next(cocurrentBags.Count())].InnerText.Trim();
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+
+            return jokeData;
         }
 
         private static string GetDownloadString(string targetUrl)

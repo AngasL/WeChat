@@ -44,8 +44,11 @@ namespace WeChat.Controllers
             string msgType = "text";
             if (messageType != null && messageType.Value == "text")
             {
-                var originalRequestContent = rootElement.Element("Content").Value.Trim();
-                responseResult = GetResponseContent(originalRequestContent, out msgType);
+                if (messageType.Value == "text")
+                {
+                    var originalRequestContent = rootElement.Element("Content").Value.Trim();
+                    responseResult = GetResponseContent(originalRequestContent, out msgType);
+                }
             }
 
             responseResult = FormatResult(rootElement, responseResult, msgType);
@@ -79,8 +82,17 @@ namespace WeChat.Controllers
             {
                 responseContent = GetJokeData();
             }
-
+            else if (originalRequestContent.StartsWith("视频"))
+            {
+                msgType = "video";
+                //responseContent = GetVideoData();
+            }
             return responseContent;
+        }
+
+        private string GetVideoData()
+        {
+            throw new NotImplementedException();
         }
 
         private static string GetDefaultMessageContent()
@@ -104,6 +116,21 @@ namespace WeChat.Controllers
 
         private string FormatResult(XElement rootElement, string responseContent, string msgType)
         {
+            if (msgType == "video")
+            {
+                return string.Format(@"<xml>"
+                    + "<ToUserName>" + rootElement.Element("FromUserName").Value + "</ToUserName>"
+                    + "<FromUserName>" + rootElement.Element("ToUserName").Value + "</FromUserName>"
+                    + "<CreateTime>" + rootElement.Element("CreateTime").Value + "</CreateTime>"
+                    + "<MsgType><![CDATA[video]]></MsgType>"
+                    + "<Video>"
+                    + "<MediaId><![CDATA[QoOYq9QnbY4KaWgDP-CPbW30C_3bpPvUoWZ3ZqRHvr1-8Yl8dAtMbW3E0QUwnyML]]></MediaId>"
+                    + "<Title><![CDATA[Danica chi pi]]></Title>"
+                    + "<Description><![CDATA[stupid danica]]></Description>"
+                    + "</Video>"
+                    + "</xml>");
+            }
+
             var suffix = "<Content><![CDATA[{1}]]></Content>" + "</xml>";
 
             if (msgType == "news")

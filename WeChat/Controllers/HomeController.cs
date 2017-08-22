@@ -260,14 +260,12 @@ namespace WeChat.Controllers
                 {
                     for (var index = 1; index < 4; index++)
                     {
-                        var downloadString = GetDownloadString("http://www.qiushibaike.com/8hr/page/" + index);
+                        var downloadString = GetDownloadString("https://www.qiushibaike.com/text/page" + index);
                         var htmlDocument = new HtmlDocument();
                         htmlDocument.LoadHtml(downloadString);
 
                         var currentItems = htmlDocument.DocumentNode
-                        .SelectNodes("//div[@class='content-text']")
-                        .Where(n => n.InnerText.IndexOf("\n\n\n\n\n") == 0
-                        && !n.InnerHtml.Contains("<img"));
+                        .SelectNodes("//a[contains(@href,'/article')]");
 
                         foreach (var currentItem in currentItems)
                         {

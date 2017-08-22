@@ -265,7 +265,7 @@ namespace WeChat.Controllers
                         htmlDocument.LoadHtml(downloadString);
 
                         var currentItems = htmlDocument.DocumentNode
-                        .SelectNodes("//a[contains(@href,'/article')]");
+                        .SelectNodes("//a[contains(@href,'/article') and not(./div)]");
 
                         foreach (var currentItem in currentItems)
                         {
